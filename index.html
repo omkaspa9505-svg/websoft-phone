@@ -1,0 +1,1699 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>Web Softphone</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+
+<body>
+  <header class="top-bar" role="banner">
+    <div class="top-bar__left">
+      <h1 class="app-title">Web Softphone</h1>
+      <div class="status-pill" id="device-status" data-state="pending" aria-live="polite">
+        <span class="status-label">Device:</span>
+        <span class="status-value">Connecting...</span>
+      </div>
+    </div>
+    <div class="top-bar__actions">
+      <!-- Caller ID Display -->
+      <div class="status-pill header-number-display" style="margin-right: 1rem;">
+        <span class="status-label">Line:</span>
+        <span id="user-number-display" class="status-value">Loading...</span>
+      </div>
+      <button type="button" id="history-toggle" class="button button--ghost" aria-expanded="false"
+        aria-controls="history-drawer">
+        History
+      </button>
+      <button type="button" id="recordings-toggle" class="button button--ghost" aria-expanded="false"
+        aria-controls="recordings-drawer">
+        Recordings
+      </button>
+      <!-- ... (rest of header) ... -->
+      <button type="button" id="sms-toggle" class="button button--ghost" aria-expanded="false"
+        aria-controls="sms-drawer">
+        Messages
+      </button>
+      <button type="button" id="theme-toggle" class="button button--ghost" aria-pressed="false">
+        Light mode
+      </button>
+      <button type="button" id="logout-btn" class="button button--ghost">
+        Logout
+      </button>
+    </div>
+  </header>
+  <main class="page-content" role="main">
+    <section class="card call-ui" id="call-ui" aria-labelledby="callui-title" data-state="idle">
+      <div class="call-ui__header">
+        <h2 class="call-ui__number" id="callui-title">Ready</h2>
+        <p class="call-ui__status" id="callui-status" aria-live="polite">Enter a number to place a call.</p>
+        <p class="call-ui__timer" id="callui-timer">00:00</p>
+      </div>
+      <div class="call-ui__dtmf" id="callui-digits" aria-live="polite" aria-atomic="false"></div>
+      <div class="dial-display">
+        <input id="dial-display" class="dial-display__input" type="text" inputmode="tel" placeholder="+1 000 000 0000"
+          autocomplete="off" />
+        <div class="dial-actions">
+          <button type="button" id="dial-backspace" class="dial-backspace" aria-label="Backspace">⌫</button>
+        </div>
+      </div>
+      <div class="dial-keypad" role="group" aria-label="Dial keypad">
+        <button class="dial-key" data-key="1">1</button>
+        <button class="dial-key" data-key="2">2</button>
+        <button class="dial-key" data-key="3">3</button>
+        <button class="dial-key" data-key="4">4</button>
+        <button class="dial-key" data-key="5">5</button>
+        <button class="dial-key" data-key="6">6</button>
+        <button class="dial-key" data-key="7">7</button>
+        <button class="dial-key" data-key="8">8</button>
+        <button class="dial-key" data-key="9">9</button>
+        <button class="dial-key" data-key="*">*</button>
+        <button class="dial-key" data-key="0">0</button>
+        <button class="dial-key" data-key="#">#</button>
+      </div>
+      <div class="call-ui__primary-actions" role="group" aria-label="Call controls">
+        <button id="call" type="button" class="call-button">Call</button>
+        <button id="hangup" type="button" class="call-button call-button--hangup" disabled>Hang up</button>
+      </div>
+      <div class="call-ui__grid" role="group" aria-label="In-call controls">
+        <div class="call-ui__control">
+          <button type="button" class="call-btn" id="btn-mute">Mute</button>
+          <div class="call-ui__label">Mute</div>
+        </div>
+        <div class="call-ui__control">
+          <button type="button" class="call-btn" id="btn-keypad">Keypad</button>
+          <div class="call-ui__label">Keypad</div>
+        </div>
+        <div class="call-ui__control">
+          <button type="button" class="call-btn" id="btn-speaker">Speaker</button>
+          <div class="call-ui__label">Speaker</div>
+        </div>
+        <div class="call-ui__control">
+          <button type="button" class="call-btn" id="btn-hold">Hold</button>
+          <div class="call-ui__label">Hold</div>
+        </div>
+        <div class="call-ui__control">
+          <button type="button" class="call-btn call-btn--danger" id="btn-end" disabled>End</button>
+          <div class="call-ui__label">End</div>
+        </div>
+      </div>
+    </section>
+    <section class="card dialer is-hidden" aria-labelledby="dialer-title">
+      <div class="card__header">
+        <h2 class="card__title" id="dialer-title">Outbound Call</h2>
+        <p class="card__description">Dial an E.164 number to place a call through the Twilio device.</p>
+      </div>
+      <div class="form-grid" role="group" aria-label="Dialer controls">
+        <div class="form-field">
+          <label class="form-label" for="to">Phone number</label>
+          <input id="to" name="to" type="tel" placeholder="+1..." inputmode="tel" autocomplete="tel" />
+        </div>
+      </div>
+    </section>
+    <section class="card" aria-labelledby="activity-title">
+      <div class="card__header">
+        <h2 class="card__title" id="activity-title">Activity Log</h2>
+      </div>
+      <div id="log" class="log-panel" role="log" aria-live="polite" aria-atomic="false"></div>
+    </section>
+  </main>
+
+  <div class="history-drawer" id="history-drawer" aria-hidden="true">
+    <div class="history-drawer__backdrop" id="history-backdrop" tabindex="-1"></div>
+    <aside class="history-drawer__panel" role="complementary" aria-labelledby="history-drawer-title">
+      <div class="history-drawer__header">
+        <div class="history-drawer__heading">
+          <h2 class="history-drawer__title" id="history-drawer-title">Call History</h2>
+          <p class="history-drawer__subtitle" id="history-drawer-subtitle"></p>
+        </div>
+        <div class="history-drawer__actions">
+          <button type="button" class="button button--ghost" id="history-refresh">Refresh</button>
+          <button type="button" class="button button--ghost" id="history-close">Close</button>
+        </div>
+      </div>
+      <div class="history-drawer__content">
+        <div class="history-drawer__table-wrapper" data-history-region role="region" aria-live="polite"
+          aria-busy="false">
+          <table class="history-table" aria-describedby="history-drawer-title">
+            <thead>
+              <tr>
+                <th scope="col">Time</th>
+                <th scope="col">From</th>
+                <th scope="col">To</th>
+                <th scope="col">Direction</th>
+                <th scope="col">Status</th>
+                <th scope="col">Duration</th>
+                <th scope="col">Cost</th>
+              </tr>
+            </thead>
+            <tbody id="history-body">
+              <tr>
+                <td colspan="7">Call history is loading...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="history-drawer__footer">
+          <div class="history-pagination">
+            <button type="button" class="button button--ghost" id="history-prev" disabled>Newer</button>
+            <div class="history-page-info" id="history-page-info"></div>
+            <button type="button" class="button button--ghost" id="history-next" disabled>Older</button>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <div class="recordings-drawer" id="recordings-drawer" aria-hidden="true">
+    <div class="recordings-drawer__backdrop" id="recordings-backdrop" tabindex="-1"></div>
+    <aside class="recordings-drawer__panel" role="complementary" aria-labelledby="recordings-drawer-title">
+      <div class="recordings-drawer__header">
+        <h2 class="recordings-drawer__title" id="recordings-drawer-title">Recordings</h2>
+        <button type="button" class="button button--ghost" id="recordings-close">Close</button>
+      </div>
+      <div class="recordings-drawer__content">
+        <div class="recordings-table-wrapper" data-recordings-region role="region" aria-live="polite" aria-busy="false">
+          <table class="recordings-table" aria-describedby="recordings-drawer-title">
+            <thead>
+              <tr>
+                <th scope="col">From</th>
+                <th scope="col">To</th>
+                <th scope="col">Duration (sec)</th>
+                <th scope="col">Timestamp</th>
+                <th scope="col">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="recordings-body">
+              <tr>
+                <td colspan="5">Loading...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </aside>
+  </div>
+  <div class="sms-drawer" id="sms-drawer" aria-hidden="true">
+    <div class="sms-drawer__backdrop" id="sms-backdrop" tabindex="-1"></div>
+    <aside class="sms-drawer__panel" role="complementary" aria-labelledby="sms-drawer-title">
+      <div class="sms-drawer__header">
+        <h2 class="sms-drawer__title" id="sms-drawer-title">Messages</h2>
+        <button type="button" class="button button--ghost" id="sms-close">Close</button>
+      </div>
+      <div class="sms-drawer__content">
+        <div class="sms-app">
+          <aside class="card sms-sidebar" aria-label="Conversations">
+            <div class="sms-sidebar__header">
+              <h2 class="card__title">Conversations</h2>
+              <p class="card__description">Search or start a new chat.</p>
+            </div>
+            <div class="sms-sidebar__actions">
+              <input id="conversation-search" type="text" placeholder="Search number or text..." autocomplete="off"
+                aria-label="Search conversations" />
+              <button type="button" id="start-chat" class="button button--outline" disabled>New chat</button>
+            </div>
+            <div class="sms-sidebar__list" id="conversation-list" role="listbox" aria-label="Conversation list"></div>
+          </aside>
+          <section class="card sms-thread" aria-live="polite">
+            <div class="sms-thread__header">
+              <div>
+                <h2 class="card__title" id="thread-title">Select a conversation</h2>
+                <p class="sms-thread__subtitle" id="thread-subtitle">Choose a contact on the left or start a new chat.
+                </p>
+              </div>
+            </div>
+            <div class="sms-thread__messages" id="thread-messages" role="log" aria-live="polite"></div>
+            <form class="sms-composer" id="sms-composer">
+              <div class="sms-composer__fields">
+                <div class="form-field sms-composer__number">
+                  <label class="form-label" for="composer-number">To</label>
+                  <input id="composer-number" type="tel" placeholder="+1..." inputmode="tel" autocomplete="tel" />
+                  <p class="form-error" id="composer-number-error"></p>
+                </div>
+                <div class="sms-composer__message">
+                  <label class="form-label" for="composer-body">Message</label>
+                  <div class="sms-composer__input">
+                    <input id="composer-body" type="text" placeholder="Type a message" autocomplete="off" />
+                    <button type="submit" class="button button--primary" id="composer-send" disabled>Send</button>
+                  </div>
+                  <p class="form-error" id="composer-status" role="status"></p>
+                </div>
+              </div>
+            </form>
+          </section>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <script src="/twilio-voice/twilio.min.js"></script>
+  <script>
+    const statusEl = document.getElementById('device-status');
+    const statusValue = statusEl ? statusEl.querySelector('.status-value') : null;
+    const setStatus = (state, text) => {
+      if (!statusEl || !statusValue) return;
+      statusEl.setAttribute('data-state', state);
+      statusValue.textContent = text;
+    };
+    setStatus('pending', 'Connecting...');
+
+    const log = (...a) => {
+      const el = document.getElementById('log');
+      el.textContent += a.join(' ') + '\n';
+      el.scrollTop = el.scrollHeight;
+    };
+
+    let device, activeCall;
+    // Call UI wiring
+    const callUI = {
+      root: document.getElementById('call-ui'),
+      number: document.getElementById('callui-title'),
+      status: document.getElementById('callui-status'),
+      timer: document.getElementById('callui-timer'),
+      digits: document.getElementById('callui-digits'),
+      dialInput: document.getElementById('dial-display'),
+      dialBackspace: document.getElementById('dial-backspace'),
+      keypad: document.querySelector('.dial-keypad'),
+      btnCall: document.getElementById('call'),
+      btnHangup: document.getElementById('hangup'),
+      btnMute: document.getElementById('btn-mute'),
+      btnKeypad: document.getElementById('btn-keypad'),
+      btnSpeaker: document.getElementById('btn-speaker'),
+      btnHold: document.getElementById('btn-hold'),
+      btnEnd: document.getElementById('btn-end')
+    };
+    const dialer = {
+      input: document.getElementById('dial-display'),
+      hidden: document.getElementById('to'),
+      backspace: document.getElementById('dial-backspace'),
+      keypad: document.querySelector('.dial-keypad')
+    };
+
+    const normalizeDialValue = (value = '') => {
+      const trimmed = String(value).trim();
+      const plus = trimmed.startsWith('+');
+      let digits = trimmed.replace(/[^0-9*#+]/g, '');
+      digits = digits.replace(/\+/g, '');
+      return plus ? '+' + digits : digits;
+    };
+
+    const syncDialer = (value) => {
+      const sanitized = normalizeDialValue(value);
+      if (dialer.input) dialer.input.value = sanitized;
+      if (dialer.hidden) dialer.hidden.value = sanitized;
+      if (callUI.root && callUI.root.dataset.state !== 'active') {
+        callUI.number.textContent = sanitized || 'Ready';
+        if (callUI.status) {
+          callUI.status.textContent = sanitized ? 'Ready to call' : 'Enter a number to place a call.';
+        }
+      }
+    };
+
+
+    let callTimer = null; let callStart = 0;
+    let isMuted = false; let isHeld = false; let isSpeaker = false;
+
+    const showCallUI = (toNumber) => {
+      if (!callUI.root) return;
+      callUI.root.dataset.state = 'dialing';
+      const displayNumber = normalizeDialValue(toNumber || (callUI.dialInput ? callUI.dialInput.value : ''));
+      callUI.number.textContent = displayNumber || 'Ready';
+      callUI.status.textContent = 'Calling…';
+      callUI.timer.textContent = '00:00';
+      if (callUI.digits) callUI.digits.textContent = '';
+      if (callUI.btnCall) callUI.btnCall.disabled = true;
+      if (callUI.btnHangup) callUI.btnHangup.disabled = false;
+      if (callUI.btnEnd) callUI.btnEnd.disabled = false;
+      isMuted = false; isHeld = false; isSpeaker = false;
+      callUI.btnMute && callUI.btnMute.classList.remove('is-active');
+      callUI.btnHold && callUI.btnHold.classList.remove('is-active');
+      callUI.btnSpeaker && callUI.btnSpeaker.classList.remove('is-active');
+    };
+
+    const hideCallUI = () => {
+      if (!callUI.root) return;
+      callUI.root.dataset.state = 'idle';
+      callUI.status.textContent = 'Enter a number to place a call.';
+      callUI.timer.textContent = '00:00';
+      if (callUI.digits) callUI.digits.textContent = '';
+      if (callUI.btnCall) callUI.btnCall.disabled = false;
+      if (callUI.btnHangup) callUI.btnHangup.disabled = true;
+      if (callUI.btnEnd) callUI.btnEnd.disabled = true;
+      callUI.number.textContent = normalizeDialValue(dialer.hidden ? dialer.hidden.value || '' : '') || 'Ready';
+    };
+
+    const startTimer = () => {
+      callStart = Date.now();
+      if (callTimer) window.clearInterval(callTimer);
+      callTimer = window.setInterval(() => {
+        const s = Math.max(0, Math.floor((Date.now() - callStart) / 1000));
+        const mm = String(Math.floor(s / 60)).padStart(2, '0');
+        const ss = String(s % 60).padStart(2, '0');
+        callUI.timer.textContent = mm + ":" + ss;
+      }, 1000);
+    };
+
+    const stopTimer = () => { if (callTimer) { clearInterval(callTimer); callTimer = null; } };
+
+    const toggleMute = () => {
+      if (!activeCall || typeof activeCall.isMuted !== 'function') return;
+      const next = !isMuted;
+      try {
+        activeCall.mute(next);
+        isMuted = next;
+        callUI.btnMute && callUI.btnMute.classList.toggle('is-active', isMuted);
+      } catch (error) {
+        log('Mute failed: ' + (error.message || error));
+      }
+    };
+
+    const toggleKeypad = () => {
+      if (callUI.dialInput) callUI.dialInput.focus();
+    };
+
+    const sendDigit = (digit) => {
+      if (!digit) return;
+      if (!callUI.root || callUI.root.dataset.state !== 'active') {
+        const current = dialer.hidden ? dialer.hidden.value || '' : (dialer.input ? dialer.input.value || '' : '');
+        syncDialer(current + String(digit));
+        if (callUI.dialInput) callUI.dialInput.focus();
+        return;
+      }
+      if (callUI.digits) {
+        callUI.digits.textContent = (callUI.digits.textContent + String(digit)).slice(-32);
+      }
+      try {
+        activeCall && activeCall.sendDigits(String(digit));
+      } catch (error) {
+        log('Failed to send digit: ' + (error.message || error));
+      }
+    };
+
+    const toggleHold = async () => {
+      if (!activeCall || typeof activeCall.hold !== 'function') {
+        log('Hold not supported for this call.');
+        return;
+      }
+      const next = !isHeld;
+      try {
+        const result = activeCall.hold(next);
+        if (result && typeof result.then === 'function') await result;
+        isHeld = next;
+        callUI.btnHold && callUI.btnHold.classList.toggle('is-active', isHeld);
+        if (callUI.status && callUI.root && callUI.root.dataset.state === 'active') {
+          callUI.status.textContent = isHeld ? 'On hold' : 'Connected';
+        }
+      } catch (error) {
+        log('Hold failed: ' + (error.message || error));
+      }
+    };
+
+    const toggleSpeaker = () => {
+      // Best effort: Twilio Device manages sinks; we just reflect state visually.
+      isSpeaker = !isSpeaker;
+      callUI.btnSpeaker && callUI.btnSpeaker.classList.toggle('is-active', isSpeaker);
+      log('Speaker toggle is cosmetic only in the web client.');
+    };
+
+    if (callUI.btnMute) callUI.btnMute.addEventListener('click', toggleMute);
+    if (callUI.btnKeypad) callUI.btnKeypad.addEventListener('click', toggleKeypad);
+    if (callUI.btnHold) callUI.btnHold.addEventListener('click', toggleHold);
+    if (callUI.btnSpeaker) callUI.btnSpeaker.addEventListener('click', toggleSpeaker);
+    if (callUI.btnEnd) callUI.btnEnd.addEventListener('click', hangup);
+    hideCallUI();
+
+    if (callUI.keypad) callUI.keypad.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-key]');
+      if (!btn) return;
+      sendDigit(btn.getAttribute('data-key'));
+    });
+    if (dialer.backspace) dialer.backspace.addEventListener('click', () => {
+      if (callUI.root && callUI.root.dataset.state === 'active') {
+        if (callUI.digits && callUI.digits.textContent) {
+          callUI.digits.textContent = callUI.digits.textContent.slice(0, -1);
+        }
+        return;
+      }
+      const current = dialer.hidden ? dialer.hidden.value || '' : (dialer.input ? dialer.input.value || '' : '');
+      syncDialer(current.slice(0, -1));
+    });
+    if (dialer.input) dialer.input.addEventListener('input', () => {
+      syncDialer(dialer.input.value);
+    });
+    syncDialer(dialer.hidden ? dialer.hidden.value || '' : '');
+
+    let recordingsRefreshHandle = null;
+    const recordingsTableBody = document.getElementById('recordings-body');
+    const recordingsRegion = document.querySelector('[data-recordings-region]');
+
+    const escapeHtmlLite = (value) => {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    };
+
+    const formatTimestamp = (value) => {
+      if (!value) return '—';
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) {
+        return String(value);
+      }
+      return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+    };
+
+    const formatDuration = (value) => {
+      const seconds = Number(value);
+      if (!Number.isFinite(seconds) || seconds < 0) return '-';
+      const totalSeconds = Math.floor(seconds);
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const secs = totalSeconds % 60;
+      if (hours > 0) {
+        return `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+      }
+      return `${minutes}:${String(secs).padStart(2, '0')}`;
+    };
+
+    async function requestCallRecordingStart(callSid, metadata = {}) {
+      if (!callSid) return;
+      try {
+        const payload = { callSid };
+        if (metadata && typeof metadata === 'object') {
+          if (metadata.from) payload.from = metadata.from;
+          if (metadata.to) payload.to = metadata.to;
+        }
+        await fetch('/voice/start-recording', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      } catch (error) {
+        console.error('Failed to start recording:', error);
+      }
+    }
+
+    function renderRecordings(recordings) {
+      if (!recordingsTableBody) return;
+      if (!Array.isArray(recordings) || recordings.length === 0) {
+        recordingsTableBody.innerHTML = '<tr><td colspan="5">No recordings yet.</td></tr>';
+        return;
+      }
+      stopAllRecordingPlayers();
+      recordingsTableBody.innerHTML = recordings.map((recording) => {
+        const rowUrl = recording.url || '';
+        const hasUrl = Boolean(rowUrl);
+        const safeUrl = escapeHtmlLite(rowUrl);
+        const from = escapeHtmlLite(recording.from || '-');
+        const to = escapeHtmlLite(recording.to || '-');
+        const durationLabel = escapeHtmlLite(formatDuration(recording.duration));
+        const created = escapeHtmlLite(formatTimestamp(recording.createdAt));
+        const durationValue = Number(recording.duration);
+        const durationAttr = Number.isFinite(durationValue) ? durationValue.toString() : '';
+        const safeDurationAttr = escapeHtmlLite(durationAttr);
+        const buttonState = hasUrl ? '' : ' disabled';
+        return `<tr class="recordings-row" data-recording-row data-recording-url="${safeUrl}" data-recording-duration="${safeDurationAttr}">
+          <td>${from}</td>
+          <td>${to}</td>
+          <td>${durationLabel}</td>
+          <td>${created}</td>
+          <td>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <button type="button" class="button button--outline" data-recording-play="${escapeHtmlLite(recording.sid || '')}"${buttonState}>Play</button>
+              ${hasUrl ? `<a href="${safeUrl}" download="recording-${escapeHtmlLite(recording.sid || '')}.mp3" class="button button--outline" style="text-decoration: none;" target="_blank">Download</a>` : ''}
+            </div>
+          </td>
+        </tr>
+        <tr class="recordings-player-row" aria-hidden="true">
+          <td colspan="5">
+            <div class="recording-player" hidden></div>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+    async function loadRecordings() {
+      if (!recordingsTableBody) return;
+      try {
+        if (recordingsRegion) recordingsRegion.setAttribute('aria-busy', 'true');
+        const response = await fetch('/api/recordings');
+        if (!response.ok) throw new Error('Request failed');
+        const data = await response.json();
+        renderRecordings(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error('Failed to load recordings:', error);
+        recordingsTableBody.innerHTML = '<tr><td colspan="5">Unable to load recordings.</td></tr>';
+      } finally {
+        if (recordingsRegion) recordingsRegion.setAttribute('aria-busy', 'false');
+      }
+    }
+
+    function cancelScheduledRecordingRefresh() {
+      if (recordingsRefreshHandle) {
+        clearTimeout(recordingsRefreshHandle);
+        recordingsRefreshHandle = null;
+      }
+    }
+
+    function queueRecordingsRefresh() {
+      cancelScheduledRecordingRefresh();
+      recordingsRefreshHandle = setTimeout(() => {
+        recordingsRefreshHandle = null;
+        loadRecordings();
+      }, 400);
+    }
+
+    function teardownRecordingPlayerRow(playerRow) {
+      if (!playerRow) return;
+      const container = playerRow.querySelector('.recording-player');
+      if (container) {
+        const audio = container.querySelector('audio');
+        if (audio) {
+          if (typeof audio._recordingPlayerCleanup === 'function') {
+            try { audio._recordingPlayerCleanup(); } catch (error) { /* noop */ }
+          }
+          try { audio.pause(); } catch (error) { /* noop */ }
+        }
+        container.innerHTML = '';
+        container.hidden = true;
+      }
+      playerRow.classList.remove('recordings-player-row--open');
+      playerRow.setAttribute('aria-hidden', 'true');
+      const toggleButton = playerRow.previousElementSibling && playerRow.previousElementSibling.querySelector('[data-recording-play]');
+      if (toggleButton) {
+        toggleButton.textContent = 'Play';
+      }
+    }
+
+    function stopAllRecordingPlayers(exceptRow = null) {
+      if (!recordingsTableBody) return;
+      const openRows = recordingsTableBody.querySelectorAll('.recordings-player-row--open');
+      openRows.forEach((row) => {
+        if (exceptRow && row === exceptRow) return;
+        teardownRecordingPlayerRow(row);
+      });
+    }
+
+    function initializeRecordingPlayer(container, options = {}) {
+      const { url, durationHint = null, toggleButton = null, playerRow } = options;
+      if (!container || !playerRow || !url) return;
+      container.hidden = false;
+      container.innerHTML = '';
+      const controls = document.createElement('div');
+      controls.className = 'recording-player__controls';
+      const transportButton = document.createElement('button');
+      transportButton.type = 'button';
+      transportButton.className = 'recording-player__transport';
+      transportButton.setAttribute('aria-label', 'Play recording');
+      transportButton.textContent = 'Play';
+      const times = document.createElement('div');
+      times.className = 'recording-player__times';
+      const currentTimeEl = document.createElement('span');
+      currentTimeEl.className = 'recording-player__time recording-player__time--current';
+      currentTimeEl.textContent = '0:00';
+      const divider = document.createElement('span');
+      divider.className = 'recording-player__divider';
+      divider.textContent = '/';
+      const durationEl = document.createElement('span');
+      durationEl.className = 'recording-player__time recording-player__time--total';
+      durationEl.textContent = Number.isFinite(durationHint) && durationHint > 0 ? formatDuration(durationHint) : '--:--';
+      times.append(currentTimeEl, divider, durationEl);
+
+      const speedControl = document.createElement('div');
+      speedControl.className = 'recording-player__speed';
+      const speedLabel = document.createElement('span');
+      speedLabel.className = 'recording-player__speed-label';
+      speedLabel.textContent = 'Speed';
+      const speedRange = document.createElement('input');
+      speedRange.type = 'range';
+      speedRange.min = '0.5';
+      speedRange.max = '3';
+      speedRange.step = '0.25';
+      speedRange.value = '1';
+      speedRange.className = 'recording-player__speed-range';
+      const speedSelect = document.createElement('select');
+      speedSelect.className = 'recording-player__speed-select';
+      const speedValue = document.createElement('span');
+      speedValue.className = 'recording-player__speed-value';
+      speedValue.textContent = '1.00x';
+      const speedOptions = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3];
+      speedOptions.forEach((rate) => {
+        const option = document.createElement('option');
+        option.value = rate.toString();
+        option.textContent = `${rate.toFixed(2)}x`;
+        if (rate === 1) option.selected = true;
+        speedSelect.appendChild(option);
+      });
+      const applySpeed = (value) => {
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric) || numeric < 0.5 || numeric > 3) return;
+        audio.playbackRate = numeric;
+        speedValue.textContent = `${numeric.toFixed(2)}x`;
+        speedRange.value = numeric.toString();
+        speedSelect.value = numeric.toString();
+      };
+      speedRange.addEventListener('input', () => applySpeed(speedRange.value));
+      speedSelect.addEventListener('change', () => applySpeed(speedSelect.value));
+      speedControl.append(speedLabel, speedRange, speedSelect, speedValue);
+
+      controls.append(transportButton, times, speedControl);
+      const progressTrack = document.createElement('div');
+      progressTrack.className = 'recording-player__progress';
+      progressTrack.setAttribute('role', 'slider');
+      progressTrack.setAttribute('aria-valuemin', '0');
+      progressTrack.setAttribute('aria-valuemax', '100');
+      progressTrack.setAttribute('aria-valuenow', '0');
+      progressTrack.setAttribute('aria-label', 'Recording progress');
+      progressTrack.tabIndex = 0;
+      const progressFill = document.createElement('div');
+      progressFill.className = 'recording-player__progress-fill';
+      progressTrack.appendChild(progressFill);
+      container.append(controls, progressTrack);
+      const audio = document.createElement('audio');
+      audio.preload = 'metadata';
+      audio.src = url;
+      audio.hidden = true;
+      container.appendChild(audio);
+      applySpeed(1);
+      playerRow.classList.add('recordings-player-row--open');
+      playerRow.setAttribute('aria-hidden', 'false');
+      if (toggleButton) toggleButton.textContent = 'Hide player';
+      const getDuration = () => {
+        if (Number.isFinite(audio.duration) && audio.duration > 0) return audio.duration;
+        if (Number.isFinite(durationHint) && durationHint > 0) return durationHint;
+        return 0;
+      };
+      const updateDurationLabel = () => {
+        const duration = getDuration();
+        durationEl.textContent = duration > 0 ? formatDuration(duration) : '--:--';
+      };
+      const updateProgress = () => {
+        const duration = getDuration();
+        const percent = duration > 0 ? (audio.currentTime / duration) * 100 : 0;
+        const clamped = Math.max(0, Math.min(percent, 100));
+        progressFill.style.width = `${clamped}%`;
+        progressTrack.setAttribute('aria-valuenow', `${Math.round(clamped)}`);
+        currentTimeEl.textContent = formatDuration(audio.currentTime);
+      };
+      let rafId = null;
+      const startProgressLoop = () => {
+        if (rafId) return;
+        const step = () => {
+          rafId = null;
+          updateProgress();
+          if (!audio.paused && !audio.ended) {
+            rafId = requestAnimationFrame(step);
+          }
+        };
+        rafId = requestAnimationFrame(step);
+      };
+      const stopProgressLoop = () => {
+        if (rafId) {
+          cancelAnimationFrame(rafId);
+          rafId = null;
+        }
+      };
+      const handlePlayToggle = () => {
+        if (audio.paused) {
+          audio.play().catch((error) => {
+            console.error('Unable to play recording:', error);
+          });
+        } else {
+          audio.pause();
+        }
+      };
+      transportButton.addEventListener('click', handlePlayToggle);
+      audio.addEventListener('play', () => {
+        transportButton.textContent = 'Pause';
+        transportButton.classList.add('is-playing');
+        startProgressLoop();
+      });
+      audio.addEventListener('pause', () => {
+        if (audio.ended) return;
+        transportButton.textContent = 'Resume';
+        transportButton.classList.remove('is-playing');
+        stopProgressLoop();
+      });
+      audio.addEventListener('ended', () => {
+        transportButton.textContent = 'Replay';
+        transportButton.classList.remove('is-playing');
+        stopProgressLoop();
+        updateProgress();
+      });
+      audio.addEventListener('ratechange', () => {
+        const rate = Number(audio.playbackRate);
+        if (!Number.isFinite(rate)) return;
+        speedValue.textContent = `${rate.toFixed(2)}x`;
+        speedRange.value = rate.toString();
+        speedSelect.value = rate.toString();
+      });
+      audio.addEventListener('loadedmetadata', () => {
+        updateDurationLabel();
+        updateProgress();
+      });
+      audio.addEventListener('timeupdate', updateProgress);
+      const seekToClientX = (clientX) => {
+        const rect = progressTrack.getBoundingClientRect();
+        if (!rect.width) return;
+        const ratio = (clientX - rect.left) / rect.width;
+        const duration = getDuration();
+        if (!duration) return;
+        audio.currentTime = Math.max(0, Math.min(1, ratio)) * duration;
+        updateProgress();
+      };
+      progressTrack.addEventListener('click', (event) => {
+        seekToClientX(event.clientX);
+      });
+      progressTrack.addEventListener('keydown', (event) => {
+        if (!Number.isFinite(audio.duration) || audio.duration <= 0) return;
+        const seekStep = 5;
+        if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
+          event.preventDefault();
+          audio.currentTime = Math.min(audio.currentTime + seekStep, audio.duration);
+          updateProgress();
+        } else if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
+          event.preventDefault();
+          audio.currentTime = Math.max(audio.currentTime - seekStep, 0);
+          updateProgress();
+        } else if (event.key === 'Home') {
+          event.preventDefault();
+          audio.currentTime = 0;
+          updateProgress();
+        } else if (event.key === 'End') {
+          event.preventDefault();
+          audio.currentTime = audio.duration;
+          updateProgress();
+        }
+      });
+      audio._recordingPlayerCleanup = () => {
+        stopProgressLoop();
+      };
+      audio.play().catch(() => {
+        transportButton.textContent = 'Play';
+      });
+    }
+
+    async function init() {
+      // Auth Check
+      try {
+        const authRes = await fetch('/api/auth-check');
+        const authData = await authRes.json();
+        if (!authData.authenticated) {
+          window.location.href = '/login.html';
+          return;
+        }
+      } catch (e) {
+        console.error('Auth check failed:', e);
+        window.location.href = '/login.html';
+        return;
+      }
+      // Fetch allowed numbers config
+      try {
+        const config = await fetch('/api/config').then(r => r.json());
+        // Multi-tenancy: User has one number
+        if (config.numbers && config.numbers.length) {
+          window.currentUserNumber = config.numbers[0];
+          const display = document.getElementById('user-number-display');
+          if (display) display.textContent = config.numbers[0];
+        } else {
+          const display = document.getElementById('user-number-display');
+          if (display) display.textContent = 'No number';
+        }
+      } catch (e) {
+        console.error('Failed to load config', e);
+      }
+
+      const r = await fetch('/token?identity=agent');
+      const { token } = await r.json();
+      device = new Twilio.Device(token, { debug: true });
+      device.on('registered', () => {
+        setStatus('registered', 'Registered');
+        log('Device registered');
+      });
+      device.on('error', e => {
+        setStatus('error', 'Error');
+        log('Device error: ' + e.message);
+      });
+      device.on('incoming', call => {
+        log('Incoming call to web ignored in this demo');
+        call.reject();
+      });
+      await device.register();
+    }
+
+    async function placeCall() {
+      const raw = dialer.hidden ? dialer.hidden.value.trim() : '';
+      if (!raw) return alert('Enter E.164 number like +1XXXXXXXXXX');
+      const to = normalizeDialValue(raw);
+      syncDialer(to);
+
+      try {
+        const callerId = window.currentUserNumber;
+        const params = { To: to };
+        if (callerId) params.callerId = callerId;
+
+        activeCall = await device.connect({ params });
+      } catch (error) {
+        hideCallUI();
+        log('Call failed: ' + (error.message || error));
+        return;
+      }
+      showCallUI(to);
+      if (callUI.btnCall) callUI.btnCall.disabled = true;
+      if (callUI.btnHangup) callUI.btnHangup.disabled = false;
+      let recordingStarted = false;
+      log('Dialing ' + to);
+
+      activeCall.on('accept', () => {
+        log('Call connected');
+        if (callUI.root) callUI.root.dataset.state = 'active';
+        callUI.status.textContent = 'Connected';
+        startTimer();
+        if (recordingStarted) return;
+        recordingStarted = true;
+        const params = activeCall && activeCall.parameters ? activeCall.parameters : {};
+        const callSid = params.CallSid || params.callSid || '';
+        const fromNumber = params.From || params.from || '';
+        const toNumber = params.To || params.to || to;
+        requestCallRecordingStart(callSid, { from: fromNumber, to: toNumber });
+      });
+      activeCall.on('disconnect', () => {
+        log('Call ended');
+        stopTimer();
+        hideCallUI();
+        if (callUI.btnCall) callUI.btnCall.disabled = false;
+        if (callUI.btnHangup) callUI.btnHangup.disabled = true;
+        activeCall = null;
+      });
+      activeCall.on('error', e => log('Call error: ' + (e.message || e)));
+    }
+
+    function hangup() {
+      if (activeCall) {
+        try { activeCall.disconnect(); } catch (error) { log('Hangup failed: ' + (error.message || error)); }
+      }
+      hideCallUI();
+      stopTimer();
+    }
+
+    document.getElementById('call').onclick = placeCall;
+    document.getElementById('hangup').onclick = hangup;
+
+    if (recordingsTableBody) {
+      recordingsTableBody.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-recording-play]');
+        if (!button) return;
+        const dataRow = button.closest('[data-recording-row]');
+        if (!dataRow) return;
+        const nextRow = dataRow.nextElementSibling;
+        const playerRow = nextRow && nextRow.classList && nextRow.classList.contains('recordings-player-row') ? nextRow : null;
+        if (!playerRow) return;
+        const player = playerRow.querySelector('.recording-player');
+        if (!player) return;
+        const url = dataRow.getAttribute('data-recording-url');
+        if (!url) return;
+        if (playerRow.classList.contains('recordings-player-row--open')) {
+          teardownRecordingPlayerRow(playerRow);
+          return;
+        }
+        const durationAttr = Number(dataRow.getAttribute('data-recording-duration'));
+        stopAllRecordingPlayers(playerRow);
+        initializeRecordingPlayer(player, {
+          url,
+          durationHint: Number.isFinite(durationAttr) ? durationAttr : null,
+          toggleButton: button,
+          playerRow
+        });
+      });
+    }
+
+
+    const recordingsDrawer = document.getElementById('recordings-drawer');
+    const recordingsToggle = document.getElementById('recordings-toggle');
+    const recordingsClose = document.getElementById('recordings-close');
+    const recordingsBackdrop = document.getElementById('recordings-backdrop');
+    let recordingsFocusReturn = null;
+
+    const openRecordingsDrawer = () => {
+      if (!recordingsDrawer) return;
+      recordingsFocusReturn = document.activeElement;
+      recordingsDrawer.classList.add('is-open');
+      recordingsDrawer.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('recordings-drawer-open');
+      if (recordingsToggle) recordingsToggle.setAttribute('aria-expanded', 'true');
+      cancelScheduledRecordingRefresh();
+      loadRecordings();
+      if (recordingsClose) recordingsClose.focus();
+    };
+
+    const closeRecordingsDrawer = () => {
+      if (!recordingsDrawer) return;
+      recordingsDrawer.classList.remove('is-open');
+      recordingsDrawer.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('recordings-drawer-open');
+      if (recordingsToggle) recordingsToggle.setAttribute('aria-expanded', 'false');
+      if (recordingsFocusReturn && typeof recordingsFocusReturn.focus === 'function') {
+        recordingsFocusReturn.focus();
+      }
+      stopAllRecordingPlayers();
+      queueRecordingsRefresh();
+    };
+
+    if (recordingsToggle) {
+      recordingsToggle.addEventListener('click', () => {
+        const hidden = recordingsDrawer && recordingsDrawer.getAttribute('aria-hidden') !== 'false';
+        if (hidden) openRecordingsDrawer(); else closeRecordingsDrawer();
+      });
+    }
+    if (recordingsClose) recordingsClose.addEventListener('click', closeRecordingsDrawer);
+    if (recordingsBackdrop) recordingsBackdrop.addEventListener('click', closeRecordingsDrawer);
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && recordingsDrawer && recordingsDrawer.getAttribute('aria-hidden') === 'false') {
+        closeRecordingsDrawer();
+      }
+    });
+
+    init();
+  </script>
+
+  <script>
+    (function () {
+      const drawer = document.getElementById('history-drawer');
+      if (!drawer) return;
+
+      const toggle = document.getElementById('history-toggle');
+      const closeButton = document.getElementById('history-close');
+      const refreshButton = document.getElementById('history-refresh');
+      const backdrop = document.getElementById('history-backdrop');
+      const tableBody = document.getElementById('history-body');
+      const region = document.querySelector('[data-history-region]');
+      const subtitle = document.getElementById('history-drawer-subtitle');
+      const pageInfo = document.getElementById('history-page-info');
+      const nextButton = document.getElementById('history-next');
+      const prevButton = document.getElementById('history-prev');
+
+      const state = {
+        pageSize: 25,
+        loading: false,
+        calls: [],
+        nextBefore: null,
+        hasMore: false,
+        cursorStack: [null],
+        cursorIndex: 0,
+        currentBefore: null,
+        twilioNumber: ''
+      };
+
+      let focusReturn = null;
+
+      const dateFormatter = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+      const timeFormatter = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' });
+
+      const formatTimestampParts = (iso) => {
+        if (!iso) return { date: '--', time: '' };
+        const date = new Date(iso);
+        if (Number.isNaN(date.getTime())) {
+          return { date: String(iso), time: '' };
+        }
+        return {
+          date: dateFormatter.format(date),
+          time: timeFormatter.format(date)
+        };
+      };
+
+      const formatDirection = (direction) => {
+        if (!direction) return { label: '--', className: '' };
+        const value = String(direction).toLowerCase();
+        if (value.includes('inbound')) return { label: 'Inbound', className: 'history-direction--inbound' };
+        if (value.includes('outbound')) return { label: 'Outbound', className: 'history-direction--outbound' };
+        return { label: direction, className: '' };
+      };
+
+      const formatStatus = (status) => {
+        if (!status) return 'Unknown';
+        const cleaned = String(status).replace(/_/g, ' ');
+        return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+      };
+
+      const formatCost = (price, unit) => {
+        if (price === null || price === undefined) return '--';
+        const numericPrice = Number(price);
+        if (!Number.isFinite(numericPrice)) return String(price);
+        const currency = unit || 'USD';
+        try {
+          return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(numericPrice);
+        } catch (error) {
+          return `${numericPrice.toFixed(2)} ${currency}`;
+        }
+      };
+
+      const buildMeta = (call) => {
+        const meta = [];
+        if (call.callerName) meta.push(call.callerName);
+        if (call.answeredBy) meta.push(`Answered ${call.answeredBy}`);
+        if (call.queueTime !== null && call.queueTime !== undefined) {
+          meta.push(`Queue ${formatDuration(call.queueTime)}`);
+        }
+        if (call.sid) {
+          const sid = String(call.sid);
+          meta.push(`SID ${sid.slice(-8)}`);
+        }
+        return meta;
+      };
+
+      const ensureSubtitle = () => {
+        if (!subtitle) return;
+        if (state.twilioNumber) {
+          subtitle.textContent = `Showing calls for ${state.twilioNumber}`;
+        } else {
+          subtitle.textContent = 'Account call activity';
+        }
+      };
+
+      const updatePaginationControls = () => {
+        if (prevButton) {
+          prevButton.disabled = state.loading || state.cursorIndex === 0;
+        }
+        if (nextButton) {
+          nextButton.disabled = state.loading || !state.hasMore || !state.nextBefore;
+        }
+        if (refreshButton) {
+          refreshButton.disabled = state.loading;
+        }
+        if (pageInfo) {
+          const pageNumber = state.cursorIndex + 1;
+          const count = state.calls.length;
+          const countLabel = `${count} ${count === 1 ? 'call' : 'calls'}`;
+          const descriptor = state.cursorIndex === 0 ? `Page ${pageNumber} | latest` : `Page ${pageNumber}`;
+          pageInfo.textContent = state.loading ? 'Loading...' : `${descriptor} | ${countLabel}`;
+        }
+      };
+
+      const renderCalls = () => {
+        if (!tableBody) return;
+        if (!Array.isArray(state.calls) || state.calls.length === 0) {
+          tableBody.innerHTML = '<tr><td colspan="7">No calls found.</td></tr>';
+          updatePaginationControls();
+          return;
+        }
+
+        const rows = state.calls.map((call) => {
+          const { date, time } = formatTimestampParts(call.startTime);
+          const duration = formatDuration(call.duration);
+          const direction = formatDirection(call.direction);
+          const status = formatStatus(call.status);
+          const cost = formatCost(call.price, call.priceUnit);
+          const from = escapeHtmlLite(call.fromFormatted || call.from || 'Unknown');
+          const to = escapeHtmlLite(call.toFormatted || call.to || 'Unknown');
+          const metaParts = buildMeta(call).map((part) => escapeHtmlLite(part));
+          const metaHtml = metaParts.length ? `<span class="history-status__meta">${metaParts.join(' | ')}</span>` : '';
+          const timeHtml = `<div class="history-time"><span class="history-time__date">${escapeHtmlLite(date)}</span><span class="history-time__time">${escapeHtmlLite(time)}</span></div>`;
+          return `<tr class="history-row" title="Call SID ${escapeHtmlLite(call.sid || '')}">
+            <td>${timeHtml}</td>
+            <td>
+              <div class="history-peer">
+                <span class="history-peer__label">Caller</span>
+                <span class="history-peer__value">${from}</span>
+              </div>
+            </td>
+            <td>
+              <div class="history-peer">
+                <span class="history-peer__label">Callee</span>
+                <span class="history-peer__value">${to}</span>
+              </div>
+            </td>
+            <td class="history-direction ${direction.className}">${escapeHtmlLite(direction.label)}</td>
+            <td>
+              <div class="history-status">
+                <span class="history-status__label">${escapeHtmlLite(status)}</span>
+                ${metaHtml}
+              </div>
+            </td>
+            <td>${escapeHtmlLite(duration)}</td>
+            <td>${escapeHtmlLite(cost)}</td>
+          </tr>`;
+        });
+
+        tableBody.innerHTML = rows.join('');
+        updatePaginationControls();
+      };
+
+      const setDrawerOpen = (open) => {
+        drawer.classList.toggle('is-open', open);
+        drawer.setAttribute('aria-hidden', open ? 'false' : 'true');
+        document.body.classList.toggle('history-drawer-open', open);
+        if (toggle) {
+          toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        }
+      };
+
+      const loadHistory = async (before = null, { reset = false } = {}) => {
+        if (state.loading) return;
+        state.loading = true;
+        state.currentBefore = before || null;
+        if (reset) {
+          state.cursorStack = [state.currentBefore];
+          state.cursorIndex = 0;
+        } else if (state.cursorStack[state.cursorIndex] !== state.currentBefore) {
+          state.cursorStack[state.cursorIndex] = state.currentBefore;
+        }
+        if (region) region.setAttribute('aria-busy', 'true');
+        if (tableBody && (reset || !state.calls.length)) {
+          tableBody.innerHTML = '<tr><td colspan="7">Loading call history...</td></tr>';
+        }
+        updatePaginationControls();
+
+        try {
+          const params = new URLSearchParams();
+          params.set('pageSize', String(state.pageSize));
+          if (state.currentBefore) {
+            params.set('before', state.currentBefore);
+          }
+
+          const response = await fetch(`/api/calls?${params.toString()}`, {
+            headers: { 'Accept': 'application/json' }
+          });
+          if (!response.ok) throw new Error('Request failed');
+          const payload = await response.json();
+          state.calls = Array.isArray(payload.calls) ? payload.calls : [];
+          state.nextBefore = payload.nextBefore || null;
+          state.hasMore = Boolean(payload.hasMore);
+          if (payload.twilioNumber) {
+            state.twilioNumber = payload.twilioNumber;
+          }
+          ensureSubtitle();
+          renderCalls();
+        } catch (error) {
+          console.error('Failed to load call history:', error);
+          if (!state.calls.length && tableBody) {
+            tableBody.innerHTML = '<tr><td colspan="7">Unable to load call history.</td></tr>';
+          }
+        } finally {
+          state.loading = false;
+          if (region) region.setAttribute('aria-busy', 'false');
+          updatePaginationControls();
+        }
+      };
+
+      const openDrawer = () => {
+        if (drawer.classList.contains('is-open')) return;
+        focusReturn = document.activeElement;
+        setDrawerOpen(true);
+        ensureSubtitle();
+        loadHistory(null, { reset: true });
+        if (closeButton) {
+          window.setTimeout(() => {
+            try { closeButton.focus(); } catch (error) { }
+          }, 120);
+        }
+      };
+
+      const closeDrawer = () => {
+        setDrawerOpen(false);
+        if (focusReturn && typeof focusReturn.focus === 'function') {
+          focusReturn.focus();
+        }
+      };
+
+      if (toggle) {
+        toggle.addEventListener('click', () => {
+          if (drawer.classList.contains('is-open')) {
+            closeDrawer();
+          } else {
+            openDrawer();
+          }
+        });
+      }
+
+      if (closeButton) closeButton.addEventListener('click', closeDrawer);
+      if (backdrop) backdrop.addEventListener('click', closeDrawer);
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && drawer.classList.contains('is-open')) {
+          closeDrawer();
+        }
+      });
+
+      if (refreshButton) {
+        refreshButton.addEventListener('click', () => {
+          if (state.loading) return;
+          loadHistory(null, { reset: true });
+        });
+      }
+
+      if (nextButton) {
+        nextButton.addEventListener('click', () => {
+          if (state.loading || !state.hasMore || !state.nextBefore) return;
+          state.cursorStack = state.cursorStack.slice(0, state.cursorIndex + 1);
+          state.cursorStack.push(state.nextBefore);
+          state.cursorIndex = state.cursorStack.length - 1;
+          loadHistory(state.cursorStack[state.cursorIndex]);
+        });
+      }
+
+      if (prevButton) {
+        prevButton.addEventListener('click', () => {
+          if (state.loading || state.cursorIndex === 0) return;
+          state.cursorIndex -= 1;
+          const target = state.cursorStack[state.cursorIndex] || null;
+          loadHistory(target);
+        });
+      }
+    })();
+  </script>
+
+  <script>
+    (function () {
+      const drawer = document.getElementById('sms-drawer');
+      if (!drawer) return;
+      const toggle = document.getElementById('sms-toggle');
+      const closeButton = document.getElementById('sms-close');
+      const backdrop = document.getElementById('sms-backdrop');
+
+      const setOpen = (open) => {
+        drawer.classList.toggle('is-open', open);
+        document.body.classList.toggle('sms-drawer-open', open);
+        drawer.setAttribute('aria-hidden', open ? 'false' : 'true');
+        if (toggle) {
+          toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        }
+        if (open) {
+          window.setTimeout(() => {
+            const input = document.getElementById('composer-body');
+            if (input) {
+              input.focus();
+            }
+          }, 200);
+        }
+      };
+
+      const closeDrawer = () => {
+        if (!drawer.classList.contains('is-open')) return;
+        setOpen(false);
+        if (toggle) {
+          toggle.focus();
+        }
+      };
+
+      toggle?.addEventListener('click', () => {
+        const nextState = !drawer.classList.contains('is-open');
+        setOpen(nextState);
+        if (!nextState && toggle) {
+          toggle.focus();
+        }
+      });
+
+      closeButton?.addEventListener('click', closeDrawer);
+      backdrop?.addEventListener('click', closeDrawer);
+
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && drawer.classList.contains('is-open')) {
+          closeDrawer();
+        }
+      });
+    })();
+  </script>
+
+  <script>
+    (function () {
+      const POLL_INTERVAL = 4000;
+      const state = {
+        threads: [],
+        filteredThreads: [],
+        searchTerm: '',
+        selectedNumber: '',
+        threadMessages: new Map(),
+        pollTimer: null,
+        autoScrollPinned: true
+      };
+
+      const elements = {
+        search: document.getElementById('conversation-search'),
+        startChat: document.getElementById('start-chat'),
+        list: document.getElementById('conversation-list'),
+        threadTitle: document.getElementById('thread-title'),
+        threadSubtitle: document.getElementById('thread-subtitle'),
+        threadMessages: document.getElementById('thread-messages'),
+        composer: document.getElementById('sms-composer'),
+        numberInput: document.getElementById('composer-number'),
+        numberError: document.getElementById('composer-number-error'),
+        messageInput: document.getElementById('composer-body'),
+        sendButton: document.getElementById('composer-send'),
+        sendButton: document.getElementById('composer-send'),
+        composerStatus: document.getElementById('composer-status'),
+        fileInput: document.getElementById('file-upload'),
+        attachmentPreview: document.getElementById('attachment-preview'),
+        attachmentName: document.getElementById('attachment-name'),
+        attachmentClear: document.getElementById('attachment-clear')
+      };
+
+      const escapeHtml = (value = '') => {
+        return value.replace(/[&<>"']/g, (char) => ({
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#39;'
+        }[char] || char));
+      };
+
+      const isValidE164 = (value = '') => /^\+[1-9]\d{1,14}$/.test(value);
+
+      const formatTime = (value) => {
+        if (!value) return '';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) {
+          return value;
+        }
+        return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+      };
+
+      function setNumberError(message) {
+        if (!elements.numberError) return;
+        elements.numberError.textContent = message || '';
+      }
+
+      function setComposerStatus(message) {
+        if (!elements.composerStatus) return;
+        elements.composerStatus.textContent = message || '';
+      }
+
+      function updateComposerState() {
+        const number = elements.numberInput.value.trim();
+        const message = elements.messageInput.value.trim();
+        const validNumber = isValidE164(number);
+        elements.sendButton.disabled = !(validNumber && message);
+        setNumberError(validNumber || !number ? '' : 'Use +E.164 format, e.g. +15551234567');
+      }
+
+      function renderThreads() {
+        if (!elements.list) return;
+        const threads = state.filteredThreads;
+        if (!threads.length) {
+          elements.list.innerHTML = '<div class="empty-state">No conversations yet.</div>';
+          return;
+        }
+
+        elements.list.innerHTML = threads.map((thread) => {
+          const number = escapeHtml(thread.number);
+          const preview = escapeHtml(thread.preview || '');
+          const timestamp = escapeHtml(formatTime(thread.latestTimestamp));
+          const active = thread.number === state.selectedNumber ? ' is-active' : '';
+          const unread = thread.unreadCount ? `<span class="badge">${thread.unreadCount}</span>` : '';
+          return `<button class="conversation-item${active}" data-number="${number}">
+            <span class="conversation-number">${number}</span>
+            ${unread}
+            <span class="conversation-preview">${preview}</span>
+            <span class="conversation-time">${timestamp}</span>
+          </button>`;
+        }).join('');
+      }
+
+      function renderThreadMessages(number) {
+        if (!elements.threadMessages) return;
+        const messages = state.threadMessages.get(number) || [];
+        if (!messages.length) {
+          elements.threadMessages.innerHTML = '<div class="empty-thread">No messages yet.</div>';
+          return;
+        }
+
+        elements.threadMessages.innerHTML = messages.map((message) => {
+          const directionClass = message.direction?.startsWith('inbound') ? 'message-bubble--inbound' : 'message-bubble--outbound';
+          const body = escapeHtml(message.body || '');
+          const time = escapeHtml(formatTime(message.dateCreated));
+          const status = escapeHtml(message.status || '');
+          return `<article class="message-bubble ${directionClass}">
+            <div class="message-bubble__body">${body}</div>
+            <div class="message-bubble__meta">
+              <span>${time}</span>
+              ${status ? `<span class="message-bubble__status">${status}</span>` : ''}
+            </div>
+          </article>`;
+        }).join('');
+
+        if (state.autoScrollPinned) {
+          elements.threadMessages.scrollTop = elements.threadMessages.scrollHeight;
+        }
+      }
+
+      async function loadThreads() {
+        try {
+          const response = await fetch('/api/messages/threads');
+          if (!response.ok) throw new Error('Request failed');
+          const data = await response.json();
+          state.threads = Array.isArray(data) ? data : [];
+          applyThreadFilter();
+        } catch (error) {
+          console.error('Failed to load message threads:', error);
+        }
+      }
+
+      function applyThreadFilter() {
+        const term = state.searchTerm.trim();
+        if (!term) {
+          state.filteredThreads = [...state.threads];
+        } else {
+          // Robust search: match text OR stripped digits
+          const lower = term.toLowerCase();
+          const digits = term.replace(/\D/g, '');
+
+          state.filteredThreads = state.threads.filter((thread) => {
+            if (!thread.number) return false;
+            const tDir = (thread.preview || '').toLowerCase();
+            const tNum = thread.number.toLowerCase();
+            const tDigits = thread.number.replace(/\D/g, '');
+
+            // Match plain text name/body OR exact number digits
+            return tNum.includes(lower) || tDir.includes(lower) || (digits && tDigits.includes(digits));
+          });
+        }
+        renderThreads();
+        updateStartChatButton();
+      }
+
+      async function loadThread(number, { stickToBottom = false } = {}) {
+        if (!number) return;
+        try {
+          const response = await fetch(`/api/messages/thread?number=${encodeURIComponent(number)}`);
+          if (!response.ok) throw new Error('Request failed');
+          const data = await response.json();
+          state.threadMessages.set(number, Array.isArray(data) ? data : []);
+          state.autoScrollPinned = stickToBottom;
+          renderThreadMessages(number);
+        } catch (error) {
+          console.error('Failed to load message thread:', error);
+        }
+      }
+
+      function selectConversation(number, { load = true, focusComposer = false } = {}) {
+        state.selectedNumber = number;
+        updateThreadHeader();
+        renderThreads();
+        renderThreadMessages(number);
+        elements.numberInput.value = number || '';
+        updateComposerState();
+        if (load && number) {
+          loadThread(number, { stickToBottom: true });
+        }
+        if (focusComposer) {
+          elements.messageInput.focus();
+        }
+      }
+
+      function updateThreadHeader() {
+        if (!elements.threadTitle || !elements.threadSubtitle) return;
+        if (state.selectedNumber) {
+          elements.threadTitle.textContent = state.selectedNumber;
+          elements.threadSubtitle.textContent = 'Your conversation history';
+        } else {
+          elements.threadTitle.textContent = 'Select a conversation';
+          elements.threadSubtitle.textContent = 'Choose a contact on the left or start a new chat.';
+        }
+      }
+
+      function updateStartChatButton() {
+        if (!elements.startChat) return;
+        const value = elements.search.value.trim();
+        elements.startChat.disabled = !isValidE164(value);
+      }
+
+      async function handleSend(event) {
+        event.preventDefault();
+        setComposerStatus('');
+        const number = elements.numberInput.value.trim();
+        const body = elements.messageInput.value.trim();
+        if (!isValidE164(number)) {
+          setNumberError('Use +E.164 format, e.g. +15551234567');
+          return;
+        }
+        if (!body) {
+          elements.sendButton.disabled = true;
+          return;
+        }
+        if (state.selectedNumber !== number) {
+          selectConversation(number, { load: false, focusComposer: false });
+        }
+        const optimistic = {
+          sid: `tmp-${Date.now()}`,
+          direction: 'outbound-api',
+          from: 'me',
+          to: number,
+          body,
+          status: 'sending',
+          dateCreated: new Date().toISOString(),
+          _optimistic: true
+        };
+
+        const messages = state.threadMessages.get(number) || [];
+        messages.push(optimistic);
+        state.threadMessages.set(number, messages);
+        elements.messageInput.value = '';
+        updateComposerState();
+        renderThreadMessages(number);
+        elements.threadMessages.scrollTop = elements.threadMessages.scrollHeight;
+
+        try {
+          const fromNum = window.currentUserNumber;
+          const payload = { to: number, body };
+          if (fromNum) payload.from = fromNum;
+
+          const response = await fetch('/sms/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            throw new Error(errData.error || errData.message || 'Request failed');
+          }
+          const result = await response.json();
+          optimistic.sid = result.sid || optimistic.sid;
+          optimistic.status = result.status || 'sent';
+          optimistic._optimistic = false;
+          setComposerStatus('');
+          await loadThreads();
+          await loadThread(number, { stickToBottom: true });
+        } catch (error) {
+          console.error('Failed to send SMS:', error);
+          optimistic._optimistic = false;
+          optimistic._error = true;
+          optimistic.status = 'failed';
+          setComposerStatus(`Message failed: ${error.message}`);
+          renderThreadMessages(number);
+        }
+      }
+
+      function startPolling() {
+        if (state.pollTimer) return;
+        state.pollTimer = setInterval(async () => {
+          const current = state.selectedNumber;
+          await loadThreads();
+          if (current) {
+            await loadThread(current, { stickToBottom: false });
+          }
+        }, POLL_INTERVAL);
+      }
+
+      elements.startChat.addEventListener('click', () => {
+        const value = elements.search.value.trim();
+        if (!isValidE164(value)) return;
+        selectConversation(value, { focusComposer: true });
+      });
+
+      elements.threadMessages.addEventListener('scroll', () => {
+        state.autoScrollPinned = elements.threadMessages.scrollTop + elements.threadMessages.clientHeight >= elements.threadMessages.scrollHeight - 16;
+      });
+
+      elements.search.addEventListener('input', () => {
+        state.searchTerm = elements.search.value;
+        applyThreadFilter();
+      });
+
+      if (elements.list) {
+        elements.list.addEventListener('click', (event) => {
+          const button = event.target.closest('.conversation-item');
+          if (!button) return;
+          const number = button.getAttribute('data-number');
+          if (number) {
+            selectConversation(number, { focusComposer: true });
+          }
+        });
+      }
+
+      elements.numberInput.addEventListener('input', () => {
+        const value = elements.numberInput.value.trim();
+        updateComposerState();
+        if (isValidE164(value) && value !== state.selectedNumber) {
+          selectConversation(value, { load: false, focusComposer: false });
+          renderThreadMessages(value);
+        }
+        if (!value) {
+          state.selectedNumber = '';
+          updateThreadHeader();
+          renderThreads();
+          renderThreadMessages('');
+        }
+      });
+
+      elements.messageInput.addEventListener('input', () => {
+        updateComposerState();
+      });
+
+      elements.composer.addEventListener('submit', handleSend);
+
+      updateStartChatButton();
+      updateComposerState();
+      renderThreadMessages('');
+      loadThreads().then(() => {
+        console.log('Initial threads loaded:', state.filteredThreads);
+        if (!state.selectedNumber && state.filteredThreads.length) {
+          const first = state.filteredThreads[0];
+          if (first && first.number) {
+            selectConversation(first.number, { focusComposer: false });
+          }
+        }
+      });
+      startPolling();
+    })();
+  </script>
+  <script>
+    (function () {
+      const toggle = document.getElementById('theme-toggle');
+      if (toggle) {
+        const root = document.documentElement;
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const stored = localStorage.getItem('theme');
+        let current = stored || (prefersDark ? 'dark' : 'dark');
+        const apply = (mode) => {
+          root.setAttribute('data-theme', mode);
+          toggle.setAttribute('aria-pressed', mode === 'light');
+          toggle.textContent = mode === 'light' ? 'Dark mode' : 'Light mode';
+        };
+        apply(current);
+
+        toggle.addEventListener('click', () => {
+          current = current === 'dark' ? 'light' : 'dark';
+          localStorage.setItem('theme', current);
+          apply(current);
+        });
+      }
+
+      // Logout logic
+      const logoutBtn = document.getElementById('logout-btn');
+      if (logoutBtn) {
+        logoutBtn.addEventListener('click', async () => {
+          try {
+            await fetch('/logout', { method: 'POST' });
+          } catch (e) {
+            console.error('Logout failed', e);
+          }
+          window.location.href = '/login.html';
+        });
+      }
+    })();
+  </script>
+</body>
+
+</html>
