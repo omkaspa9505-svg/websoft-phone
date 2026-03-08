@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Login - Twilio Phone</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+        }
+
+        .login-card {
+            background-color: var(--card-bg);
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+            box-sizing: border-box;
+        }
+
+        .login-card h2 {
+            margin-top: 0;
+            margin-bottom: 1.5rem;
+        }
+
+        .input-group {
+            margin-bottom: 1rem;
+            text-align: left;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--text-muted);
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 0.75rem;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            box-sizing: border-box;
+        }
+
+        .btn-primary {
+            width: 100%;
+            justify-content: center;
+        }
+
+        #error-msg {
+            color: #ff4444;
+            margin-top: 1rem;
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="login-card">
+        <h2>Agent Login</h2>
+        <form id="login-form">
+            <div class="input-group">
+                <label for="phoneNumber">Phone Number</label>
+                <input type="tel" id="phoneNumber" name="phoneNumber" required placeholder="+15550001234" autofocus>
+            </div>
+            <div class="input-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required placeholder="Enter App Password">
+            </div>
+            <button type="submit" class="btn btn-primary">Login</button>
+        </form>
+        <div id="error-msg">Invalid Credentials</div>
+    </div>
+
+    <script>
+        const form = document.getElementById('login-form');
+        const errorMsg = document.getElementById('error-msg');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            errorMsg.style.display = 'none';
+            const phoneNumber = document.getElementById('phoneNumber').value.trim();
+            const password = document.getElementById('password').value;
+
+            try {
+                const res = await fetch('/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phoneNumber, password })
+                });
+                const data = await res.json();
+
+                if (res.ok && data.success) {
+                    window.location.href = '/';
+                } else {
+                    errorMsg.style.display = 'block';
+                    errorMsg.textContent = data.error || 'Login failed';
+                }
+            } catch (err) {
+                console.error(err);
+                errorMsg.style.display = 'block';
+                errorMsg.textContent = 'Connection error';
+            }
+        });
+
+        // Check if already logged in
+        fetch('/api/auth-check')
+            .then(r => r.json())
+            .then(data => {
+                if (data.authenticated) {
+                    window.location.href = '/';
+                }
+            })
+            .catch(() => { });
+    </script>
+</body>
+
+</html>
